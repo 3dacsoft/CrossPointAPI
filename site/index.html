@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>CrossPoint Controller</title>
+        <link rel="stylesheet" href="css/bootstrap.css" type="text/css" />
+        <script src="scripts/jquery-3.6.0.min.js"></script>
+        <script>
+            function createTie(inChannel, outChannel) {
+                $.get("/createTie", null, function(data, text, jqXHR) {
+                    if(data == "In" + inChannel + "Out" + outChannel + "All")
+                        ;//Good
+                    else
+                        alert("Not expected response: " + data);
+                });
+            }
+
+            function saveCurrentToPreset() {
+                var presetNumber = parseInt(prompt("Enter preset number"));
+                if(isNaN(presetNumber)) return;
+                else if(presetNumber < 1 || presetNumber > 32) {
+                    alert("Preset number are 1-32");
+                    return;
+                }
+
+                $.get("/activePresets", function(data, text, jqXHR) {
+                    for(i in data.Presets) {
+                        if(data.Presets[i].Number == presetNumber && !confirm("Are you sure you want to overrite preset " + presetNumber))
+                            return;
+                    }
+                });
+                $.get("/saveCurrentToPreset?preset=" + presetNumber, null, function(data, text, jqXHR) {
+                    if(data == "Spr" + preset) alert("success");
+                    else alert("failed");
+                });
+                window.reload();
+            }
+
+            function getActivePresets() {
+                $.get("/activePresets", function(data, text, jqXHR) {
+                    var presetDiv = $("#presets");
+                    var presets = data.Presets;
+                    for (i in presets) {
+                        var preset = presets[i];
+                        presetDiv.append($("<div>", {
+                            class: "col"
+                        }).append($('<button/>', {
+                            text: preset.Name,
+                            id: 'loadPreset_' + preset.Number,
+                            class: "btn btn-outline-success btn-lg"
+                        }).click(preset.Number, function (button) { 
+                            loadPreset(button.data);
+                        })));
+                    }
+                })
+            }
+            
+            function loadPreset(presetNumber) {
+                $.get("/loadPreset?preset=" + presetNumber, function(data, text, jqXHR) {
+                    console.log("Successfully applied preset " + presetNumber);
+                });
+            }
+        </script>
+    </head>
+    <body onload="getActivePresets()">
+        <div class="container text-center">
+            <div id="presets" class="row align-items-center" style="min-height: 10rem;"></div>
+            <divc class="row align-items-center">
+                <div class="col">
+                    <button class="btn btn-outline-primary" onclick="saveCurrentToPreset()">Save current configuration</button>
+                </div>
+                <div class="col">
+                    <a class="btn btn-outline-primary" href="createPreset.html">Create New Preset</a>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

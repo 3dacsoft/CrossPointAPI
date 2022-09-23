@@ -1,0 +1,66 @@
+{
+    "serial-port": "=/dev/ttyS0",
+    "http-port": 1872,
+    "http-root": "../site",
+    "binding": "192.168.1.26:1872",
+    "inputs": [
+        {
+            "channel": 1,
+            "description": "NES"
+        },
+        {
+            "channel": 2,
+            "description": "Super NES"
+        },
+        {
+            "channel": 3,
+            "description": "Nintendo 64"
+        },
+        {
+            "channel": 4,
+            "description": "Gamecube"
+        },
+        {
+            "channel": 5,
+            "description": "Genesis"
+        },
+        {
+            "channel": 6,
+            "description": "Playstation 2"
+        },
+        {
+            "channel": 7,
+            "description": "Atari 2600"
+        },
+        {
+            "channel": 8,
+            "description": "MiSTer"
+        }
+    ],
+    "outputs": [
+        {
+            "channel": 1,
+            "description": "TV Component"
+        },
+        {
+            "channel": 2,
+            "description": "TV Composite"
+        },
+        {
+            "channel": 3,
+            "description": "Shinybow"
+        },
+        {
+            "channel": 4,
+            "description": "Framemeister RGB"
+        },
+        {
+            "channel": 5,
+            "description": "Framemeister YPbPr"
+        },
+        {
+            "channel": 6,
+            "description": "Framemeister Y/C"
+        }
+    ]
+}

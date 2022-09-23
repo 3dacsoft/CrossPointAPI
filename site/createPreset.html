@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Create New Preset</title>
+        <script src="scripts/jquery-3.6.0.min.js"></script>
+        <script>
+            function loadSwitchConfig() {
+                $.get("/info?includeTies=false", null, function(config, text, jqXHR) {
+                    var inputCount = config.InputPortCount;
+                    var outputCount = config.OutputPortCount;
+
+                    var inputTable = $("#inputs");
+                    for(i = 1; i <= inputCount; i++)
+                    {
+                        inputTable.append($("<tr>")
+                            .append($("<td>").text("Input " + i))
+                            .append($("<td>")
+                                .append($('<select>').prop("multiple", true).attr({ id: "input" + i, name: "inputs", style: "width:100px", size: "2" })))
+                            .append($("<button>").text(" << ").click(i, function(sender) { addOutputsToInput(sender.data); }))
+                            .append($("<button>").text(" >> ").attr("id", "remove" + i).click(i, function(sender) { removeOutputs(sender.data); }).hide())
+                        );
+                    };
+                    
+                    var outputList = $("#outputList");
+                    outputList.attr("size", outputCount);
+                    for(i = 1; i <= outputCount; i++)
+                        outputList.append(new Option("Ouput " + i, i));
+
+                    var presetList = $("#presetList")
+                    $.get("/presetNames", function (data, text, xhr) {
+                        for(i = 0; i < 32; i++)
+                        {
+                            var preset = data.Presets[i];
+                            presetList.append(new Option(preset.Number + ": " + preset.Name, preset.Number));
+                        }
+                    });
+                });
+            }
+
+            function addOutputsToInput(inputNumber) {
+                var inputList = $("#input" + inputNumber);
+                $("#outputList").find("option:selected").appendTo(inputList);
+                if(inputList.find("option").length > 0)
+                    $("#remove" + inputNumber).show();
+            }
+
+            function removeOutputs(inputNumber) {
+                var inputList = $("#input" + inputNumber);
+                inputList.find("option:selected").appendTo($("#outputList"));
+                if(inputList.find("option").length == 0)
+                    $("#remove" + inputNumber).hide();
+            }
+
+            function createPreset() {
+                var inputsWithTies = $("select[name=inputs]").has("option");
+                if(inputsWithTies.length == 0) {
+                    alert("You must add at least one tie");
+                    return;
+                }
+
+                var presetName = $("#presetName").val();
+                if(presetName.length == 0 && !confirm("Name is blank. Use default naming?")) return;
+
+                var selectedPreset = $("#presetList").find(":selected").first();
+                if(!selectedPreset.text().includes("[unassigned]") && !confirm("Overwrite existing preset?")) return;
+
+                var inputArray = new Array(inputsWithTies.length);
+                for(i = 0; i < inputsWithTies.length; i++) {
+                    var inputList = inputsWithTies[i];
+                    inputArray[i] = {
+                        InputNumber: parseInt(inputList.id.substring(5)),
+                        OutputChannels: $.map(inputList.options, function(opt) { return opt.value; })
+                    };
+                }
+
+                var content = {
+                    PresetNumber: parseInt(selectedPreset.val()),
+                    PresetName: $("#presetName").val(),
+                    Inputs: inputArray,
+                };
+
+                $.ajax("createPreset", {
+                    data: JSON.stringify(content),
+                    contentType: "application/json",
+                    type: "POST"
+                }).done(function(data, status, xhr) {
+                    //success func
+                });
+            }
+        </script>
+    </head>
+    <body onload="loadSwitchConfig()">
+        <table>
+            <tr>
+                <td>
+                    <label for="presetList">Preset Number: 
+                        <select id="presetList">
+                            <option value="0"></option>
+                        </select>
+                    </label>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="presetName">Preset Name: 
+                        <input type="text" id="presetName" maxlength="12" />
+                    </label>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <table id="inputs">
+                    </table>
+                </td>
+                <td>
+                    <label for="outputs">Outputs
+                        <div id="outputs">
+                            <select id="outputList" multiple style="width:100px"></select>
+                        </div>
+                    </label>
+                </td>
+            </tr>
+        </table>
+        <br />
+        <button onclick="createPreset()">Save</button>
+    </body>
+</html>
