@@ -1,8 +1,8 @@
 {
-    "serial-port": "=/dev/ttyS0",
+    "serial-port": "virtual",
     "http-port": 1872,
     "http-root": "../site",
-    "binding": "192.168.1.26:1872",
+    "binding": "127.0.0.1:1872",
     "inputs": [
         {
             "channel": 1,

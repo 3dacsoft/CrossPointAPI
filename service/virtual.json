@@ -1,0 +1,35 @@
+{
+    "input_channels": 12,
+    "output_channels": 8,
+    "audio_support": true,
+    "current_ties": [
+        {
+            "in": 5,
+            "out": 4,
+            "type": "All"
+        }
+    ],
+    "presets": [
+        {
+            "number": 2,
+            "name": "SNES",
+            "ties": [
+                {
+                    "in": 6,
+                    "out": 3,
+                    "type": "All"
+                },
+                {
+                    "in": 11,
+                    "out": 9,
+                    "type": "All"
+                },
+                {
+                    "in": 10,
+                    "out": 9,
+                    "type": "All"
+                }
+            ]
+        }
+    ]
+}

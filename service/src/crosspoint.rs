@@ -1,7 +1,16 @@
-use std::{io::{Write, BufReader, BufRead, Error}, time::Duration};
+use std::{
+    io::{Write, BufReader, BufRead, Error},
+    time::Duration,
+    str::FromStr
+};
 use serialport::SerialPort;
+use crate::vextron::VirtualCrosspoint;
 
-const INFO_CMD: [u8;3] = [ 0x49, 0x0D, 0x0A ]; // "I\r\n"
+const INFO_CMD: &[u8;3] = b"I\r\n";
+const CLEAR_PRESET_CMD: &[u8;9] = b"\x1B+00P0*!\r";
+const GET_PRESET_NAME_CMD: &[u8;6] = b"\x1B00NG\r";
+const SAVE_CURRENT_CONFIG_CMD: &[u8;5] = b"00,\r\n";
+const LOAD_PRESET_CMD: &[u8;5] = b"00.\r\n";
 
 pub struct CrossPoint {
     port: Box<dyn SerialPort>,
@@ -14,18 +23,24 @@ pub struct CrossPoint {
 
 impl CrossPoint {
     pub fn connect(port_name: &str) -> Result<CrossPoint, Error> {
-
-        let mut port = serialport::new(port_name, 9600)
-            .data_bits(serialport::DataBits::Eight)
-            .flow_control(serialport::FlowControl::None)
-            .parity(serialport::Parity::None)
-            .stop_bits(serialport::StopBits::One)
-            .timeout(Duration::from_secs(1))
-            .open()?;
+        
+        let mut port: Box<dyn SerialPort>;
+        
+        if port_name == "virtual" {
+            port = VirtualCrosspoint::load_or_new();
+        } else {
+            port = serialport::new(port_name, 9600)
+                .data_bits(serialport::DataBits::Eight)
+                .flow_control(serialport::FlowControl::None)
+                .parity(serialport::Parity::None)
+                .stop_bits(serialport::StopBits::One)
+                .timeout(Duration::from_secs(1))
+                .open()?;
+        }
 
         let serial_port = String::from(port_name);
-
-        port.write(&INFO_CMD)?;
+        
+        port.write(INFO_CMD)?;
         port.flush()?;
 
         let mut reader = BufReader::new(port);
@@ -60,7 +75,10 @@ impl CrossPoint {
     pub fn port_name(&self) -> &str { &self.serial_port }
 
     pub fn get_preset_name(&mut self, preset_number: i32) -> Result<String, Error> {
-        let cmd = [ 0x1B, ((preset_number / 10) + 0x30) as u8, ((preset_number % 10) + 0x30) as u8, 0x4E, 0x47, 0x0D ]; // "[Esc]NGxx[CR]"
+        let mut cmd = GET_PRESET_NAME_CMD.clone();
+        cmd[1] = ((preset_number / 10) + 0x30) as u8;
+        cmd[2] = ((preset_number % 10) + 0x30) as u8;
+
         self.send_command(&cmd)
     }
 
@@ -95,60 +113,34 @@ impl CrossPoint {
     }
 
     pub fn save_current_config(&mut self, preset_number: i32) -> Result<String, Error> {
-        let mut cmd: Vec<u8> = Vec::new();
-        if preset_number > 10 {
-            cmd.push(((preset_number / 10) + 0x30) as u8);
-        }
-        cmd.push(((preset_number % 10) + 0x30) as u8);
-        cmd.push(',' as u8);
-        cmd.push(0x0D);
-        cmd.push(0x0A);
+        let mut cmd= SAVE_CURRENT_CONFIG_CMD.clone();
+        cmd[0] = ((preset_number / 10) + 0x30) as u8;
+        cmd[1] = ((preset_number % 10) + 0x30) as u8;
 
         self.send_command(&cmd)
     }
 
     pub fn load_preset(&mut self, preset_number: i32) -> Result<String, Error> {
-        let mut cmd: Vec<u8> = Vec::new();
-        if preset_number > 10 {
-            cmd.push(((preset_number / 10) + 0x30) as u8);
-        }
-        cmd.push(((preset_number % 10) + 0x30) as u8);
-        cmd.push('.' as u8);
-        cmd.push(0x0D);
-        cmd.push(0x0A);
+        let mut cmd = LOAD_PRESET_CMD.clone();
+        cmd[0] = ((preset_number / 10) + 0x30) as u8;
+        cmd[1] = ((preset_number % 10) + 0x30) as u8;
 
         self.send_command(&cmd)
     }
 
-    fn io_char(io_type: CrossPointIO) -> u8 {
-        (match io_type {
-            CrossPointIO::All => '!',
-            CrossPointIO::RGB => '&',
-            CrossPointIO::Vid => '%',
-            CrossPointIO::Aud => '$'
-        }) as u8
+    pub fn clear_preset(&mut self, preset_number: i32) -> Result<String, Error> {
+        let mut cmd = CLEAR_PRESET_CMD.clone();
+        cmd[2] = ((preset_number / 10) + 0x30) as u8;
+        cmd[3] = ((preset_number % 10) + 0x30) as u8;
+
+        self.send_command(&cmd)
     }
 
-    pub fn create_preset(&mut self, new_preset: CrossPointPreset) -> Result<String, Error>
-    {
-        let io = CrossPoint::io_char(new_preset.io_type);
+    pub fn create_preset(&mut self, new_preset: CrossPointPreset) -> Result<String, Error> {
         //Clear preset first
+        self.clear_preset(new_preset.number)?;
+
         let mut cmd: Vec<u8> = Vec::new();
-        cmd.push(0x1B); //Esc
-        cmd.push('+' as u8);
-        if new_preset.number > 10 {
-            cmd.push(((new_preset.number / 10) + 0x30) as u8);
-        }
-        cmd.push(((new_preset.number % 10) + 0x30) as u8);
-        cmd.push('P' as u8);
-        cmd.push('0' as u8);
-        cmd.push('*' as u8);
-        cmd.push('!' as u8);
-        cmd.push('\r' as u8);
-
-        self.send_command(&cmd)?;
-
-        cmd.clear();
         cmd.push(0x1B as u8); //Esc
         cmd.push('+' as u8);
         if new_preset.number > 10 {
@@ -156,21 +148,21 @@ impl CrossPoint {
         }
         cmd.push(((new_preset.number % 10) + 0x30) as u8);
         cmd.push('P' as u8);
-        for tie in new_preset.ties
-        {
+        for tie in new_preset.ties {
             let in_channel = tie.input_channel;
-            for out_channel in tie.output_channels {
-                if in_channel > 10 {
-                    cmd.push(((in_channel / 10) + 0x30) as u8);
-                }
-                cmd.push(((in_channel % 10) + 0x30) as u8);
-                cmd.push('*' as u8);
-                if out_channel > 10 {
-                    cmd.push(((out_channel / 10) + 0x30) as u8);
-                }
-                cmd.push(((out_channel % 10) + 0x30) as u8);
-                cmd.push(io);
+            if in_channel > 10 {
+                cmd.push(((in_channel / 10) + 0x30) as u8);
             }
+            cmd.push(((in_channel % 10) + 0x30) as u8);
+
+            cmd.push('*' as u8);
+
+            let out_channel = tie.output_channel;
+            if out_channel > 10 {
+                cmd.push(((out_channel / 10) + 0x30) as u8);
+            }
+            cmd.push(((out_channel % 10) + 0x30) as u8);
+            cmd.push(tie.io_type.to_char() as u8);
         }
         cmd.push('\r' as u8);
 
@@ -185,33 +177,55 @@ impl CrossPointPreset {
         let number = json_request["PresetNumber"].as_i32().unwrap();
         let ties = json_request["Inputs"].entries().map(|i| { 
             CrossPointTie {
-                input_channel: i.1["InputChannel"].as_i32().unwrap(),
-                output_channels: i.1["OutputChannels"].entries().map(|channel| channel.1.as_i32().unwrap()).collect()
+                input_channel: i.1["InputChannel"].as_u8().unwrap(),
+                output_channel: i.1["OutputChannels"].as_u8().unwrap(),
+                io_type: CrossPointIO::from_str(i.1["IOType"].as_str().unwrap_or_default()).unwrap()
             }
         }).collect();
 
-        CrossPointPreset { number, name, ties, io_type: CrossPointIO::All }
+        CrossPointPreset { number, name, ties }
     }
 }
 
-pub struct CrossPointPreset
-{
+pub struct CrossPointPreset {
     pub number: i32,
     pub name: String,
     pub ties: Vec<CrossPointTie>,
+}
+
+pub struct  CrossPointTie {
+    pub input_channel: u8,
+    pub output_channel: u8,
     pub io_type: CrossPointIO
 }
 
-pub struct  CrossPointTie
-{
-    pub input_channel: i32,
-    pub output_channels: Vec<i32>
-}
-
-pub enum CrossPointIO
-{
+pub enum CrossPointIO {
     All,
     RGB,
     Vid,
     Aud,
+}
+
+impl CrossPointIO {
+    fn to_char(&self) -> char {
+        match self {
+            CrossPointIO::All => '!',
+            CrossPointIO::RGB => '&',
+            CrossPointIO::Vid => '%',
+            CrossPointIO::Aud => '$'
+        }
+    }
+}
+
+impl FromStr for CrossPointIO {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s  {
+            "All" => Ok(CrossPointIO::All),
+            "RGB" => Ok(CrossPointIO::RGB),
+            "Vid" => Ok(CrossPointIO::Vid),
+            "Aud" => Ok(CrossPointIO::Aud),
+            _ => Ok(CrossPointIO::All)
+        }
+    }
 }

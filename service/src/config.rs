@@ -21,7 +21,7 @@ impl ServiceConfiguration {
         };
         let config_json = match json::parse(&config_file) {
             Ok(j) => j,
-            Err(e) => return Err(ConfigurationError::new("Config file is not in JSON format"))
+            Err(_) => return Err(ConfigurationError::new("Config file is not in JSON format"))
         };
 
         let mut config = ServiceConfiguration {

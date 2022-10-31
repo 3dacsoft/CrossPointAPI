@@ -1,13 +1,13 @@
-pub mod crosspoint;
-pub mod service;
-pub mod config;
-pub mod http;
+mod crosspoint;
+mod service;
+mod config;
+mod http;
+mod vextron;
 
 use std::{
     io::stdin,
     error::Error,
 };
-use crosspoint::CrossPoint;
 use config::ServiceConfiguration;
 
 fn main() -> Result<(), Box<dyn Error>> {
